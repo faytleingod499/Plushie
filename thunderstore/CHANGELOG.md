@@ -1,3 +1,6 @@
+## 1.2.1
+- New "Put all away" button in the menu.
+
 ## 1.2.0
 - The list of your plushies is now its own window that pops out to the left of the menu (never taller than the menu, with a scroll bar when it is long).
 - New Height slider lifts a plushie that is out up into the air, up to 4 metres.

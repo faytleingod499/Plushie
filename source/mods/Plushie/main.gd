@@ -14,7 +14,7 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.2.0"
+const VERSION = "1.2.1"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
 
@@ -83,6 +83,7 @@ var list_title
 var list_panel
 var list_scroll
 var lift_slider
+var all_away_button
 var lift_label
 var detail
 var name_field
@@ -1243,6 +1244,13 @@ func _build_ui():
 	_glass_button(del)
 	row.add_child(del)
 
+	all_away_button = Button.new()
+	all_away_button.text = "Put all away"
+	all_away_button.focus_mode = Control.FOCUS_NONE
+	all_away_button.connect("pressed", self, "_on_all_away")
+	_glass_button(all_away_button)
+	column.add_child(all_away_button)
+
 
 func _small_label(text):
 	var l = Label.new()
@@ -1505,6 +1513,11 @@ func _refresh_list():
 
 
 func _refresh_detail():
+	var any_out = false
+	for k in entries.keys():
+		if entries[k]["owner"] == _my_id():
+			any_out = true
+	all_away_button.disabled = not any_out
 	var rec = _record(selected)
 	detail.visible = rec != null
 	if rec == null:
@@ -1636,6 +1649,13 @@ func _on_away():
 	var rec = _record(selected)
 	if rec != null:
 		_put_away(rec)
+
+
+func _on_all_away():
+	for key in entries.keys():
+		if entries[key]["owner"] == _my_id():
+			_remove_entry(key)
+	_refresh_all()
 
 
 func _on_delete():

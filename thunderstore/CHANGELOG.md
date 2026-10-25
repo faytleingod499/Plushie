@@ -1,3 +1,6 @@
+## 1.0.4
+- Patterns on modded species now use the pattern picture that follows the game's own numbering (the log showed the one for CDPanda's protogen was the next slot along).
+
 ## 1.0.3
 - Tries to copy patterns onto modded species too (a best guess at which picture of the pattern fits their model). The log lists the pattern slots it found.
 

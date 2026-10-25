@@ -191,7 +191,12 @@ func _tint_modded(node, primary, secondary, pattern, species_id):
 		var tex = null
 		if pattern != null and pattern.body_pattern.size() > 1:
 			var bp = pattern.body_pattern
-			var pick = species_id if (species_id > 0 and species_id < bp.size()) else (2 if bp.size() > 2 else bp.size() - 1)
+			# vanilla: cat has internal id 0 and uses slot 1, dog id 1 and slot 2, so a species' slot is its id + 1
+			var pick = 2 if bp.size() > 2 else bp.size() - 1
+			if species_id + 1 < bp.size() and bp[species_id + 1] != null:
+				pick = species_id + 1
+			elif species_id < bp.size() and species_id > 0 and bp[species_id] != null:
+				pick = species_id
 			tex = bp[pick]
 			var have = []
 			for t in bp:

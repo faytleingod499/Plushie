@@ -14,7 +14,7 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.3.0"
+const VERSION = "1.4.0"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
 
@@ -83,8 +83,10 @@ var list_title
 var list_panel
 var list_scroll
 var lift_slider
-var x_slider
-var z_slider
+var grab_button
+var moving = null          # the plushie being dragged with the mouse
+var move_from = Vector3()
+var move_sync_at = 0.0
 var move_labels = {}
 var all_away_button
 var lift_label
@@ -165,6 +167,7 @@ func _process(delta):
 		_update_entries(local, me)
 		_update_sessions(delta, me)
 		_update_prompt(local, me)
+		_follow_mouse()
 		_update_labels()
 	if menu_open:
 		refresh_timer += delta
@@ -1199,10 +1202,15 @@ func _build_ui():
 	turn_label.add_color_override("font_color", Color(1, 1, 1))
 	turn_row.add_child(turn_label)
 
-	# move it about: three sliders, 0 in the middle, up to MAX_LIFT metres each way along the world's x, height and z
-	x_slider = _move_row("Left/right", "_on_x_changed")
+	# up and down: 0 in the middle, up to MAX_LIFT metres each way (below zero it sinks into the ground)
 	lift_slider = _move_row("Up/down", "_on_lift_changed")
-	z_slider = _move_row("Back/forth", "_on_z_changed")
+
+	grab_button = Button.new()
+	grab_button.text = "Grab and move"
+	grab_button.focus_mode = Control.FOCUS_NONE
+	grab_button.connect("pressed", self, "_on_grab")
+	_glass_button(grab_button)
+	detail.add_child(grab_button)
 
 	var grid = GridContainer.new()
 	grid.columns = 3
@@ -1316,7 +1324,81 @@ func _on_button_input(event):
 		button.accept_event()
 
 
+# --- grab and move: the plushie follows the mouse over the ground; click to put it down, Esc to cancel ---
+
+func _on_grab():
+	var rec = _record(selected)
+	if rec == null:
+		return
+	var key = str(_my_id()) + ":" + rec["id"]
+	if not entries.has(key):
+		return
+	moving = entries[key]
+	move_from = moving["feet"]
+	rec["ox"] = 0.0
+	rec["oz"] = 0.0
+	menu.visible = false
+	list_panel.visible = false
+
+
+func _finish_move(commit):
+	if moving == null:
+		return
+	if not commit:
+		moving["feet"] = move_from
+	moving = null
+	sync_dirty = true
+	if menu_open:
+		menu.visible = true
+		list_panel.visible = true
+		_refresh_detail()
+		call_deferred("_place_menu")
+
+
+# the point of the ground under the mouse
+func _mouse_ground(node, point = null):
+	var view = node.get_viewport()
+	var camera = view.get_camera() if view != null else null
+	if camera == null or node.get_world() == null:
+		return null
+	var at = get_viewport().get_mouse_position() if point == null else point
+	var holder = view.get_parent()
+	if holder is ViewportContainer and view.size.x > 0 and view.size.y > 0:
+		var box = holder.get_global_rect()
+		at = (at - box.position) * (view.size / box.size)
+	var from = camera.project_ray_origin(at)
+	var to = from + camera.project_ray_normal(at) * 150.0
+	var hit = node.get_world().direct_space_state.intersect_ray(from, to, [], 1 | 2)
+	return null if hit.empty() else hit["position"]
+
+
+func _follow_mouse():
+	var e = moving
+	if e == null:
+		return
+	if not is_instance_valid(e["node"]) or not entries.has(e["key"]) or _local_player() == null:
+		_finish_move(false)
+		return
+	toast.text = "Click to put it down, Esc to cancel"
+	toast.rect_size = Vector2()
+	toast_until = clock + 0.3
+	var p = _mouse_ground(e["node"])
+	if p != null:
+		e["feet"] = p
+		if clock >= move_sync_at:
+			move_sync_at = clock + 0.25
+			sync_dirty = true
+
+
 func _input(event):
+	if moving != null:
+		if event is InputEventMouseButton and event.pressed:
+			_finish_move(event.button_index == BUTTON_LEFT)
+			get_tree().set_input_as_handled()
+		elif event is InputEventKey and event.pressed and event.scancode == KEY_ESCAPE:
+			_finish_move(false)
+			get_tree().set_input_as_handled()
+		return
 	if btn_pressed:
 		if event is InputEventMouseMotion:
 			if not btn_dragging and event.position.distance_to(press_pos) > 4.0:
@@ -1565,7 +1647,8 @@ func _refresh_detail():
 	var deg = fposmod(rad2deg(entries[out_key]["yaw"]), 360.0) if entries.has(out_key) else 0.0
 	turn_slider.value = round(deg / 5.0) * 5.0
 	turn_label.text = str(int(turn_slider.value)) + "\u00b0" if entries.has(out_key) else "-"
-	for pair in [[x_slider, "ox"], [lift_slider, "lift"], [z_slider, "oz"]]:
+	grab_button.disabled = not entries.has(out_key)
+	for pair in [[lift_slider, "lift"]]:
 		pair[0].editable = entries.has(out_key)
 		pair[0].value = float(rec.get(pair[1], 0.0)) if entries.has(out_key) else 0.0
 		move_labels[pair[0]].text = ("%+.2f m" % float(rec.get(pair[1], 0.0))) if entries.has(out_key) else "-"
@@ -1641,17 +1724,9 @@ func _on_turn_changed(value):
 	turn_label.text = str(int(value)) + "\u00b0"
 
 
-# moves a plushie that is out: up/down (negative goes down into the ground), left/right, back/forth
+# lifts a plushie that is out (negative goes down into the ground)
 func _on_lift_changed(value):
 	_move(lift_slider, "lift", value)
-
-
-func _on_x_changed(value):
-	_move(x_slider, "ox", value)
-
-
-func _on_z_changed(value):
-	_move(z_slider, "oz", value)
 
 
 func _move(slider, key, value):

@@ -14,7 +14,7 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.4.0"
+const VERSION = "1.4.1"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
 
@@ -37,7 +37,7 @@ const SEE_RANGE = 40.0       # players further than this aren't offered
 const SHOW_RANGE = 45.0      # names are hidden past this
 const PUT_DISTANCE = 1.4     # where a plushie is put, in front of me (times my size)
 
-const PROMPT_RANGE = 1.6     # how close you have to be (plus half the plushie's size) for the tag
+const PROMPT_RANGE = 0.8     # how close you have to be (plus a quarter of the plushie's size) for the tag
 const HUG_TIME = 3.2
 const HUG_BLEND = 0.4
 const HUG_MOVE = 0.8         # walking further than this ends a hug
@@ -588,7 +588,7 @@ func _update_prompt(local, me):
 			var node = e["node"]
 			if not is_instance_valid(node) or _taken_by_hug(e):
 				continue
-			var reach = PROMPT_RANGE + 0.5 * node.size
+			var reach = PROMPT_RANGE + 0.25 * node.size
 			var d = Vector3(node.global_transform.origin.x - here.x, 0, node.global_transform.origin.z - here.z).length()
 			if d < reach and d < best:
 				best = d

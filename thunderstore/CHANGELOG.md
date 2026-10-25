@@ -1,3 +1,7 @@
+## 1.3.0
+- Three position sliders (left/right, up/down, back/forth) for exact placement of a plushie that is out. Each has 0 in the middle and goes 5 metres either way; going down lets the plushie sink through the ground.
+- The old Height slider became the up/down slider. "Put out" / "Move here" start the sliders from 0 again.
+
 ## 1.2.2
 - Plushies no longer have the red blush lines on their cheeks (they are only meant to show when a player is drunk).
 

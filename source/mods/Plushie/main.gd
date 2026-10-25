@@ -14,7 +14,7 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.2.2"
+const VERSION = "1.3.0"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
 
@@ -28,7 +28,7 @@ const HEARTS = "res://Scenes/Particles/kiss.tscn"
 const OPEN_KEY = KEY_O
 
 const MAX_COLLECTION = 30
-const MAX_LIFT = 4.0          # how high a plushie can be lifted off the ground (metres, at most)
+const MAX_LIFT = 5.0          # how far a plushie can be moved from where it was put, each way, on each axis (metres)
 const LIST_WIDTH = 200       # the pop-out list; the menu itself is 250 wide, the list is never wider or taller
 const MAX_PLACED = 3
 const MAX_NAME = 20
@@ -83,6 +83,9 @@ var list_title
 var list_panel
 var list_scroll
 var lift_slider
+var x_slider
+var z_slider
+var move_labels = {}
 var all_away_button
 var lift_label
 var detail
@@ -275,7 +278,8 @@ func _encode(e):
 			bits.append(str(k) + "=" + str(outfit[k]))
 	var f = e["feet"]
 	return "|".join([e["id"], _clean_name(rec.get("name", "")), "%.2f" % float(rec.get("size", DEFAULT_SIZE)), rec.get("pose", "sit"),
-		"%.2f" % f.x, "%.2f" % f.y, "%.2f" % f.z, "%.2f" % e["yaw"], ",".join(bits), "%.2f" % float(rec.get("lift", 0.0))])
+		"%.2f" % f.x, "%.2f" % f.y, "%.2f" % f.z, "%.2f" % e["yaw"], ",".join(bits), "%.2f" % float(rec.get("lift", 0.0)),
+		"%.2f" % float(rec.get("ox", 0.0)), "%.2f" % float(rec.get("oz", 0.0))])
 
 
 func _valid_id(id):
@@ -316,7 +320,8 @@ func _decode(text):
 	var pose = f[3] if Poses.has(f[3]) else "sit"
 	var lim = 100000.0
 	return {"id": f[0], "rec": {"id": f[0], "name": _clean_name(f[1]), "size": _num(f[2], Plush.MIN_SIZE, Plush.MAX_SIZE, DEFAULT_SIZE),
-			"pose": pose, "outfit": outfit, "lift": _num(f[9] if f.size() > 9 else "0", 0.0, MAX_LIFT, 0.0)},
+			"pose": pose, "outfit": outfit, "lift": _num(f[9] if f.size() > 9 else "0", -MAX_LIFT, MAX_LIFT, 0.0),
+			"ox": _num(f[10] if f.size() > 10 else "0", -MAX_LIFT, MAX_LIFT, 0.0), "oz": _num(f[11] if f.size() > 11 else "0", -MAX_LIFT, MAX_LIFT, 0.0)},
 		"feet": Vector3(_num(f[4], -lim, lim, 0.0), _num(f[5], -lim, lim, 0.0), _num(f[6], -lim, lim, 0.0)),
 		"yaw": _num(f[7], -20.0, 20.0, 0.0)}
 
@@ -389,6 +394,12 @@ func _read_hug(lobby, id, player):
 
 # --- the plushies in the world ---
 
+# where a plushie stands: the spot it was put plus the x and z the sliders moved it
+func _spot(e):
+	var rec = e["rec"]
+	return e["feet"] + Vector3(float(rec.get("ox", 0.0)), 0, float(rec.get("oz", 0.0)))
+
+
 func _hug_text(rec):
 	var n = str(rec.get("name", ""))
 	return "Hug " + (n if n != "" else "plushie")
@@ -424,7 +435,7 @@ func _rebuild_entry(e):
 	if not node.setup(e["rec"]):
 		node.queue_free()
 		return
-	node.place(e["feet"], e["yaw"])
+	node.place(_spot(e), e["yaw"])
 	e["node"] = node
 
 
@@ -472,7 +483,7 @@ func _update_entries(local, me):
 				busy = true
 		if not busy:
 			e["node"].lift_extra = float(e["rec"].get("lift", 0.0))
-			e["node"].place(e["feet"], e["yaw"])
+			e["node"].place(_spot(e), e["yaw"])
 
 
 # the floor under a spot
@@ -523,6 +534,9 @@ func _put_out(rec):
 	var spot = local.global_transform.origin + f * PUT_DISTANCE * max(s, 0.5)
 	var feet = _ground(local, spot, local.global_transform.origin.y - 1.0 * s)
 	var yaw = _yaw_facing(-f)   # facing me
+	rec["ox"] = 0.0     # a fresh spot: the sliders start from zero again
+	rec["oz"] = 0.0
+	rec["lift"] = 0.0
 	if entries.has(key):
 		var e = entries[key]
 		e["feet"] = feet
@@ -639,7 +653,7 @@ func _start_session(hugger_id, hugger, entry, mine):
 			return
 	sessions[hugger_id] = {"hugger": hugger, "entry": entry, "t": 0.0, "w": 0.0, "ending": false, "squeaked": false,
 		"start": hugger.global_transform.origin, "mine": mine,
-		"home_feet": entry["feet"], "home_yaw": entry["yaw"]}
+		"home_feet": _spot(entry), "home_yaw": entry["yaw"]}
 
 
 func _end_session(hugger_id):
@@ -652,7 +666,7 @@ func _end_session(hugger_id):
 	if is_instance_valid(e["node"]):
 		e["node"].set_held(false)
 		e["node"].lift_extra = float(e["rec"].get("lift", 0.0))
-		e["node"].place(e["feet"], e["yaw"])
+		e["node"].place(_spot(e), e["yaw"])
 	sessions.erase(hugger_id)
 
 
@@ -1005,7 +1019,8 @@ func _load_config():
 				"size": clamp(float(r.get("size", DEFAULT_SIZE)), Plush.MIN_SIZE, Plush.MAX_SIZE),
 				"pose": str(r.get("pose", "sit")) if Poses.has(str(r.get("pose", "sit"))) else "sit",
 				"outfit": r.get("outfit", {}) if typeof(r.get("outfit", {})) == TYPE_DICTIONARY else {},
-				"lift": clamp(float(r.get("lift", 0.0)), 0.0, MAX_LIFT)})
+				"lift": clamp(float(r.get("lift", 0.0)), -MAX_LIFT, MAX_LIFT),
+				"ox": clamp(float(r.get("ox", 0.0)), -MAX_LIFT, MAX_LIFT), "oz": clamp(float(r.get("oz", 0.0)), -MAX_LIFT, MAX_LIFT)})
 	selected = str(data.get("selected", ""))
 	if _record(selected) == null:
 		selected = collection[0]["id"] if not collection.empty() else ""
@@ -1184,27 +1199,10 @@ func _build_ui():
 	turn_label.add_color_override("font_color", Color(1, 1, 1))
 	turn_row.add_child(turn_label)
 
-	var lift_row = HBoxContainer.new()
-	lift_row.add_constant_override("separation", 8)
-	detail.add_child(lift_row)
-	var lift_name = Label.new()
-	lift_name.text = "Height"
-	lift_name.add_color_override("font_color", Color(1, 1, 1))
-	lift_row.add_child(lift_name)
-	lift_slider = HSlider.new()
-	lift_slider.min_value = 0.0
-	lift_slider.max_value = MAX_LIFT
-	lift_slider.step = 0.05
-	lift_slider.focus_mode = Control.FOCUS_NONE
-	lift_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lift_slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	lift_slider.connect("value_changed", self, "_on_lift_changed")
-	lift_row.add_child(lift_slider)
-	lift_label = Label.new()
-	lift_label.rect_min_size = Vector2(46, 0)
-	lift_label.align = Label.ALIGN_RIGHT
-	lift_label.add_color_override("font_color", Color(1, 1, 1))
-	lift_row.add_child(lift_label)
+	# move it about: three sliders, 0 in the middle, up to MAX_LIFT metres each way along the world's x, height and z
+	x_slider = _move_row("Left/right", "_on_x_changed")
+	lift_slider = _move_row("Up/down", "_on_lift_changed")
+	z_slider = _move_row("Back/forth", "_on_z_changed")
 
 	var grid = GridContainer.new()
 	grid.columns = 3
@@ -1250,6 +1248,33 @@ func _build_ui():
 	all_away_button.connect("pressed", self, "_on_all_away")
 	_glass_button(all_away_button)
 	column.add_child(all_away_button)
+
+
+func _move_row(title, callback):
+	var row = HBoxContainer.new()
+	row.add_constant_override("separation", 8)
+	detail.add_child(row)
+	var name = Label.new()
+	name.text = title
+	name.rect_min_size = Vector2(70, 0)
+	name.add_color_override("font_color", Color(1, 1, 1))
+	row.add_child(name)
+	var slider = HSlider.new()
+	slider.min_value = -MAX_LIFT
+	slider.max_value = MAX_LIFT
+	slider.step = 0.05
+	slider.focus_mode = Control.FOCUS_NONE
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slider.connect("value_changed", self, callback)
+	row.add_child(slider)
+	var label = Label.new()
+	label.rect_min_size = Vector2(52, 0)
+	label.align = Label.ALIGN_RIGHT
+	label.add_color_override("font_color", Color(1, 1, 1))
+	row.add_child(label)
+	move_labels[slider] = label
+	return slider
 
 
 func _small_label(text):
@@ -1540,9 +1565,10 @@ func _refresh_detail():
 	var deg = fposmod(rad2deg(entries[out_key]["yaw"]), 360.0) if entries.has(out_key) else 0.0
 	turn_slider.value = round(deg / 5.0) * 5.0
 	turn_label.text = str(int(turn_slider.value)) + "\u00b0" if entries.has(out_key) else "-"
-	lift_slider.editable = entries.has(out_key)
-	lift_slider.value = float(rec.get("lift", 0.0)) if entries.has(out_key) else 0.0
-	lift_label.text = ("%.2f m" % float(rec.get("lift", 0.0))) if entries.has(out_key) else "-"
+	for pair in [[x_slider, "ox"], [lift_slider, "lift"], [z_slider, "oz"]]:
+		pair[0].editable = entries.has(out_key)
+		pair[0].value = float(rec.get(pair[1], 0.0)) if entries.has(out_key) else 0.0
+		move_labels[pair[0]].text = ("%+.2f m" % float(rec.get(pair[1], 0.0))) if entries.has(out_key) else "-"
 	updating_ui = false
 
 
@@ -1596,7 +1622,7 @@ func _on_size_changed(value):
 		if is_instance_valid(e["node"]):
 			e["node"].size = rec["size"]
 			e["node"].scale = Vector3.ONE * rec["size"]
-			e["node"].place(e["feet"], e["yaw"])
+			e["node"].place(_spot(e), e["yaw"])
 		sync_dirty = true
 	_save_config()
 
@@ -1615,15 +1641,27 @@ func _on_turn_changed(value):
 	turn_label.text = str(int(value)) + "\u00b0"
 
 
-# lifts a plushie that is out up into the air (or back down)
+# moves a plushie that is out: up/down (negative goes down into the ground), left/right, back/forth
 func _on_lift_changed(value):
+	_move(lift_slider, "lift", value)
+
+
+func _on_x_changed(value):
+	_move(x_slider, "ox", value)
+
+
+func _on_z_changed(value):
+	_move(z_slider, "oz", value)
+
+
+func _move(slider, key, value):
 	if updating_ui:
 		return
 	var rec = _record(selected)
 	if rec == null:
 		return
-	rec["lift"] = clamp(float(value), 0.0, MAX_LIFT)
-	lift_label.text = "%.2f m" % rec["lift"]
+	rec[key] = clamp(float(value), -MAX_LIFT, MAX_LIFT)
+	move_labels[slider].text = "%+.2f m" % rec[key]
 	_changed(rec)
 
 

@@ -14,5 +14,6 @@ Turn a player you see into a plushie. It wears the outfit they have on right now
 
 - Client side only. The only thing sent is a short line in the Steam lobby describing the plushies you have out.
 - A plushie is a copy of the player's look at the moment you made it. It doesn't change if they change outfit.
+- Modded outfits, species, colours and patterns show on a plushie only if you have the same mods installed.
 - Put-out plushies are not kept between games: put them out again from the menu.
 - Requires [GDWeave](https://thunderstore.io/c/webfishing/p/NotNet/GDWeave/).

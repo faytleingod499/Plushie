@@ -1,38 +1,6 @@
 ## 1.3.0
-- Three position sliders (left/right, up/down, back/forth) for exact placement of a plushie that is out. Each has 0 in the middle and goes 5 metres either way; going down lets the plushie sink through the ground.
-- The old Height slider became the up/down slider. "Put out" / "Move here" start the sliders from 0 again.
-
-## 1.2.2
-- Plushies no longer have the red blush lines on their cheeks (they are only meant to show when a player is drunk).
-
-## 1.2.1
-- New "Put all away" button in the menu.
-
-## 1.2.0
-- The list of your plushies is now its own window that pops out to the left of the menu (never taller than the menu, with a scroll bar when it is long).
-- New Height slider lifts a plushie that is out up into the air, up to 4 metres.
-
-## 1.1.0
-- The game's big interact bubble is gone. Walking up to a plushie shows a small glass "E  Hug <name>" tag on its body instead, like the other mods; E still hugs.
-- You can keep 30 plushies (was 12).
-- New Turn slider in the menu rotates a plushie that is out.
-
-## 1.0.4
-- Patterns on modded species now use the pattern picture that follows the game's own numbering (the log showed the one for CDPanda's protogen was the next slot along).
-
-## 1.0.3
-- Tries to copy patterns onto modded species too (a best guess at which picture of the pattern fits their model). The log lists the pattern slots it found.
-
-## 1.0.2
-- Plushies of players using modded species (for example from Zea Species) are no longer white: the body is tinted with the player's colours. Patterns on modded species are not copied yet.
-- Logs which materials a modded species uses, to help with further fixes.
-
-## 1.0.1
-- The menu key is now **O** (K is a vanilla key).
-- Logs the outfit it captured when a plushie is made, to help track down colour problems.
-
-## 1.0.0
-- First release: make a plushie of any player you can see, wearing their current outfit.
-- Name it, make it bigger or smaller, and sit it in one of nine poses.
-- Press E on a plushie to hug it: it squeaks, is pulled in to you, and is lifted to your chest if you are bigger than it.
-- Players with the mod see each other's plushies and can hug them too.
+- Make a plushie of any player you can see, wearing their current outfit (modded species, colours and patterns included).
+- Name it, resize it, turn it, and move it exactly where you want with the position sliders.
+- Nine poses: sit, stand, slump, hug me, wave, hands up, lie on back, lie on tummy and sleep.
+- Walk up and press E to hug it: it squeaks, is pulled in to you, and is lifted to your chest if you are bigger than it.
+- Keep up to 30 plushies, with 3 out at a time. Players who also have the mod see your plushies and can hug them too.

@@ -153,7 +153,11 @@ func _dress(outfit):
 	if tail != null:
 		tail._load_tail(cd[data["tail"]]["file"].mesh, primary.main_color)
 
-	if species_mesh != null and species_mesh is MeshInstance:
+	if species_mesh != null and not ["species_cat", "species_dog"].has(data["species"]):
+		# a species added by a mod: the game's own code only colours cat and dog, the mod colours its own,
+		# and that code isn't running here, so tint its body with the colours the same way
+		_tint_modded(species_mesh, primary.main_color, secondary.main_color, pattern, species_id)
+	elif species_mesh != null and species_mesh is MeshInstance:
 		species_mesh.material_override = null
 		var which = -1
 		match data["species"]:
@@ -167,6 +171,57 @@ func _dress(outfit):
 			skin_mat.set_shader_param("albedo", primary.main_color)
 			skin_mat.set_shader_param("albedo_secondary", secondary.main_color)
 			skin_mat.set_shader_param("texture_albedo", pattern.body_pattern[which])
+
+
+# Colours the first surface of every mesh in a modded species with the skin shader (or its own material's
+# colour), so the plushie isn't left in whatever plain material the model came with.
+func _tint_modded(node, primary, secondary, pattern, species_id):
+	var meshes = []
+	_collect_meshes(node, meshes)
+	print("[Plushie] modded species: ", node.name, " meshes=", meshes.size())
+	for mi in meshes:
+		if mi.mesh == null or mi.mesh.get_surface_count() == 0:
+			continue
+		var old = mi.get_surface_material(0)
+		if old == null:
+			old = mi.material_override
+		if old == null:
+			old = mi.mesh.surface_get_material(0)
+		print("[Plushie]   ", mi.name, " surface0 material: ", old.get_class() if old != null else "none", " ", old.shader.resource_path if old is ShaderMaterial and old.shader != null else "")
+		var tex = null
+		if pattern != null and pattern.body_pattern.size() > species_id and species_id > 0:
+			tex = pattern.body_pattern[species_id]
+		# without a pattern picture the shader would paint everything with the second colour
+		var second = secondary if tex != null else primary
+		if old is SpatialMaterial:
+			var m = old.duplicate()
+			m.albedo_color = primary
+			mi.material_override = null
+			mi.set_surface_material(0, m)
+		elif old is ShaderMaterial and old.shader != null and old.shader.code.find("albedo") >= 0:
+			# its own skin shader: keep it (and its markings), just give it the colours
+			var m2 = old.duplicate()
+			m2.set_shader_param("albedo", primary)
+			if old.shader.code.find("albedo_secondary") >= 0:
+				m2.set_shader_param("albedo_secondary", second)
+			if tex != null and old.shader.code.find("texture_albedo") >= 0:
+				m2.set_shader_param("texture_albedo", tex)
+			mi.material_override = null
+			mi.set_surface_material(0, m2)
+		else:
+			var skin_mat = load(SKINS).duplicate()
+			skin_mat.set_shader_param("albedo", primary)
+			skin_mat.set_shader_param("albedo_secondary", second)
+			skin_mat.set_shader_param("texture_albedo", tex)
+			mi.material_override = null
+			mi.set_surface_material(0, skin_mat)
+
+
+func _collect_meshes(node, out):
+	if node is MeshInstance:
+		out.append(node)
+	for c in node.get_children():
+		_collect_meshes(c, out)
 
 
 # the game's own way of putting one cosmetic on a player (player.gd _create_cosmetic)

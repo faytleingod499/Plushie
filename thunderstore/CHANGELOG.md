@@ -1,3 +1,7 @@
+## 1.0.2
+- Plushies of players using modded species (for example from Zea Species) are no longer white: the body is tinted with the player's colours. Patterns on modded species are not copied yet.
+- Logs which materials a modded species uses, to help with further fixes.
+
 ## 1.0.1
 - The menu key is now **O** (K is a vanilla key).
 - Logs the outfit it captured when a plushie is made, to help track down colour problems.

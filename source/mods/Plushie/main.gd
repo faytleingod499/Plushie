@@ -14,7 +14,7 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.1.0"
+const VERSION = "1.2.0"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
 
@@ -28,6 +28,8 @@ const HEARTS = "res://Scenes/Particles/kiss.tscn"
 const OPEN_KEY = KEY_O
 
 const MAX_COLLECTION = 30
+const MAX_LIFT = 4.0          # how high a plushie can be lifted off the ground (metres, at most)
+const LIST_WIDTH = 200       # the pop-out list; the menu itself is 250 wide, the list is never wider or taller
 const MAX_PLACED = 3
 const MAX_NAME = 20
 const DEFAULT_SIZE = 0.45
@@ -78,6 +80,10 @@ var maker_box
 var maker_ids = ""
 var list_box
 var list_title
+var list_panel
+var list_scroll
+var lift_slider
+var lift_label
 var detail
 var name_field
 var size_slider
@@ -268,7 +274,7 @@ func _encode(e):
 			bits.append(str(k) + "=" + str(outfit[k]))
 	var f = e["feet"]
 	return "|".join([e["id"], _clean_name(rec.get("name", "")), "%.2f" % float(rec.get("size", DEFAULT_SIZE)), rec.get("pose", "sit"),
-		"%.2f" % f.x, "%.2f" % f.y, "%.2f" % f.z, "%.2f" % e["yaw"], ",".join(bits)])
+		"%.2f" % f.x, "%.2f" % f.y, "%.2f" % f.z, "%.2f" % e["yaw"], ",".join(bits), "%.2f" % float(rec.get("lift", 0.0))])
 
 
 func _valid_id(id):
@@ -309,7 +315,7 @@ func _decode(text):
 	var pose = f[3] if Poses.has(f[3]) else "sit"
 	var lim = 100000.0
 	return {"id": f[0], "rec": {"id": f[0], "name": _clean_name(f[1]), "size": _num(f[2], Plush.MIN_SIZE, Plush.MAX_SIZE, DEFAULT_SIZE),
-			"pose": pose, "outfit": outfit},
+			"pose": pose, "outfit": outfit, "lift": _num(f[9] if f.size() > 9 else "0", 0.0, MAX_LIFT, 0.0)},
 		"feet": Vector3(_num(f[4], -lim, lim, 0.0), _num(f[5], -lim, lim, 0.0), _num(f[6], -lim, lim, 0.0)),
 		"yaw": _num(f[7], -20.0, 20.0, 0.0)}
 
@@ -464,6 +470,7 @@ func _update_entries(local, me):
 			if sessions[hugger]["entry"] == e:
 				busy = true
 		if not busy:
+			e["node"].lift_extra = float(e["rec"].get("lift", 0.0))
 			e["node"].place(e["feet"], e["yaw"])
 
 
@@ -643,7 +650,7 @@ func _end_session(hugger_id):
 	var e = s["entry"]
 	if is_instance_valid(e["node"]):
 		e["node"].set_held(false)
-		e["node"].lift_extra = 0.0
+		e["node"].lift_extra = float(e["rec"].get("lift", 0.0))
 		e["node"].place(e["feet"], e["yaw"])
 	sessions.erase(hugger_id)
 
@@ -707,7 +714,7 @@ func _pose_hug(s):
 	var yaw_target = _yaw_facing(-f)
 	var yaw = lerp_angle(s["home_yaw"], yaw_target, w)
 	var feet = home.linear_interpolate(target_feet, w)
-	plush.lift_extra = 0.0
+	plush.lift_extra = lerp(float(e["rec"].get("lift", 0.0)), 0.0, w)
 	plush.place(feet, yaw)
 	if lifted:
 		# its middle (the torso) level with the hugger's chest, where their arms reach
@@ -996,7 +1003,8 @@ func _load_config():
 			collection.append({"id": id, "name": _clean_name(r.get("name", "")),
 				"size": clamp(float(r.get("size", DEFAULT_SIZE)), Plush.MIN_SIZE, Plush.MAX_SIZE),
 				"pose": str(r.get("pose", "sit")) if Poses.has(str(r.get("pose", "sit"))) else "sit",
-				"outfit": r.get("outfit", {}) if typeof(r.get("outfit", {})) == TYPE_DICTIONARY else {}})
+				"outfit": r.get("outfit", {}) if typeof(r.get("outfit", {})) == TYPE_DICTIONARY else {},
+				"lift": clamp(float(r.get("lift", 0.0)), 0.0, MAX_LIFT)})
 	selected = str(data.get("selected", ""))
 	if _record(selected) == null:
 		selected = collection[0]["id"] if not collection.empty() else ""
@@ -1095,16 +1103,29 @@ func _build_ui():
 	maker_box.add_constant_override("separation", 3)
 	column.add_child(maker_box)
 
+	# the list of plushies pops out beside the menu, never taller than the menu, with a scroll bar when long
+	list_panel = PanelContainer.new()
+	list_panel.visible = false
+	list_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	list_panel.add_stylebox_override("panel", _glass(Color(0.06, 0.12, 0.18, 0.75), Color(0.55, 1.0, 1.0, 0.45), 10, 6))
+	layer.add_child(list_panel)
+	var lmargin = MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		lmargin.add_constant_override("margin_" + side, 8)
+	list_panel.add_child(lmargin)
+	var lcol = VBoxContainer.new()
+	lcol.add_constant_override("separation", 6)
+	lcol.rect_min_size = Vector2(LIST_WIDTH, 0)
+	lmargin.add_child(lcol)
 	list_title = _small_label("Your plushies")
-	column.add_child(list_title)
-	var scroll = ScrollContainer.new()
-	scroll.rect_min_size = Vector2(0, 92)
-	scroll.scroll_horizontal_enabled = false
-	column.add_child(scroll)
+	lcol.add_child(list_title)
+	list_scroll = ScrollContainer.new()
+	list_scroll.scroll_horizontal_enabled = false
+	lcol.add_child(list_scroll)
 	list_box = VBoxContainer.new()
 	list_box.add_constant_override("separation", 3)
 	list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(list_box)
+	list_scroll.add_child(list_box)
 
 	detail = VBoxContainer.new()
 	detail.add_constant_override("separation", 5)
@@ -1161,6 +1182,28 @@ func _build_ui():
 	turn_label.align = Label.ALIGN_RIGHT
 	turn_label.add_color_override("font_color", Color(1, 1, 1))
 	turn_row.add_child(turn_label)
+
+	var lift_row = HBoxContainer.new()
+	lift_row.add_constant_override("separation", 8)
+	detail.add_child(lift_row)
+	var lift_name = Label.new()
+	lift_name.text = "Height"
+	lift_name.add_color_override("font_color", Color(1, 1, 1))
+	lift_row.add_child(lift_name)
+	lift_slider = HSlider.new()
+	lift_slider.min_value = 0.0
+	lift_slider.max_value = MAX_LIFT
+	lift_slider.step = 0.05
+	lift_slider.focus_mode = Control.FOCUS_NONE
+	lift_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lift_slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lift_slider.connect("value_changed", self, "_on_lift_changed")
+	lift_row.add_child(lift_slider)
+	lift_label = Label.new()
+	lift_label.rect_min_size = Vector2(46, 0)
+	lift_label.align = Label.ALIGN_RIGHT
+	lift_label.add_color_override("font_color", Color(1, 1, 1))
+	lift_row.add_child(lift_label)
 
 	var grid = GridContainer.new()
 	grid.columns = 3
@@ -1324,6 +1367,7 @@ func _set_menu(open):
 		return
 	menu_open = open
 	menu.visible = open
+	list_panel.visible = open
 	button.update()
 	if open:
 		_refresh_all()
@@ -1343,12 +1387,40 @@ func _place_menu():
 	menu.rect_size = Vector2()
 	var size = menu.get_combined_minimum_size()
 	menu.rect_size = size
-	var pos = button.rect_position + Vector2(button.rect_size.x + 6, 0)
+	var lsize = _size_list(size)
+	var gap = 6.0
+	var bx = button.rect_position.x
+	var pos = button.rect_position + Vector2(button.rect_size.x + gap, 0)
+	var list_x
 	if pos.x + size.x > area.x:
-		pos.x = button.rect_position.x - size.x - 6
+		# the menu opens on the button's left, and the list on the menu's left
+		pos.x = bx - size.x - gap
+		list_x = pos.x - lsize.x - gap
+	else:
+		# the menu opens on the button's right, so the list goes left of the button...
+		list_x = bx - lsize.x - gap
+		if list_x < 0:
+			# ...unless there is no room there: then it sits between the button and the menu
+			list_x = pos.x
+			pos.x += lsize.x + gap
 	pos.x = clamp(pos.x, 0, max(0, area.x - size.x))
 	pos.y = clamp(pos.y, 0, max(0, area.y - size.y))
 	menu.rect_position = pos
+	list_x = clamp(list_x, 0, max(0, area.x - lsize.x))
+	list_panel.rect_position = Vector2(list_x, clamp(pos.y, 0, max(0, area.y - lsize.y)))
+
+
+# the list is as tall as its contents but never taller than the menu, and scrolls when there are more
+# plushies than fit; returns its size
+func _size_list(menu_size):
+	var inner = list_box.get_combined_minimum_size().y
+	var head = list_title.get_combined_minimum_size().y + 6 + 16     # title, gap, margins
+	var room = max(60.0, menu_size.y - head)
+	list_scroll.rect_min_size = Vector2(0, min(inner, room))
+	list_panel.rect_size = Vector2()
+	var size = list_panel.get_combined_minimum_size()
+	list_panel.rect_size = size
+	return size
 
 
 # while the menu is open the game ignores its keys (so typing a name doesn't move or fish)
@@ -1455,6 +1527,9 @@ func _refresh_detail():
 	var deg = fposmod(rad2deg(entries[out_key]["yaw"]), 360.0) if entries.has(out_key) else 0.0
 	turn_slider.value = round(deg / 5.0) * 5.0
 	turn_label.text = str(int(turn_slider.value)) + "\u00b0" if entries.has(out_key) else "-"
+	lift_slider.editable = entries.has(out_key)
+	lift_slider.value = float(rec.get("lift", 0.0)) if entries.has(out_key) else 0.0
+	lift_label.text = ("%.2f m" % float(rec.get("lift", 0.0))) if entries.has(out_key) else "-"
 	updating_ui = false
 
 
@@ -1525,6 +1600,18 @@ func _on_turn_changed(value):
 		entries[key]["yaw"] = deg2rad(float(value))
 		sync_dirty = true
 	turn_label.text = str(int(value)) + "\u00b0"
+
+
+# lifts a plushie that is out up into the air (or back down)
+func _on_lift_changed(value):
+	if updating_ui:
+		return
+	var rec = _record(selected)
+	if rec == null:
+		return
+	rec["lift"] = clamp(float(value), 0.0, MAX_LIFT)
+	lift_label.text = "%.2f m" % rec["lift"]
+	_changed(rec)
 
 
 func _on_pose(id):

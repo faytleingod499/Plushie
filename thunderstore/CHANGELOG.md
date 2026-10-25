@@ -1,3 +1,7 @@
+## 1.2.0
+- The list of your plushies is now its own window that pops out to the left of the menu (never taller than the menu, with a scroll bar when it is long).
+- New Height slider lifts a plushie that is out up into the air, up to 4 metres.
+
 ## 1.1.0
 - The game's big interact bubble is gone. Walking up to a plushie shows a small glass "E  Hug <name>" tag on its body instead, like the other mods; E still hugs.
 - You can keep 30 plushies (was 12).

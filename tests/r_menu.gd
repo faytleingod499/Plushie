@@ -19,7 +19,7 @@ func _idle(delta):
 				c.set("visible", false)
 				print("hid ", c.name)
 		var o = Plush.sanitize({})
-		main.collection = [{"id": "a1", "name": "Mochi", "size": 0.45, "pose": "wave", "outfit": o}, {"id": "b2", "name": "Big Bear", "size": 1.2, "pose": "sit", "outfit": o}]
+		main.collection = [{"id": "a1", "name": "Mochi", "size": 0.45, "pose": "wave", "outfit": o}, {"id": "b2", "name": "Big Bear", "size": 1.2, "pose": "sit", "outfit": o}] + _many(o)
 		main.selected = "a1"
 		main.button.visible = true
 		main.set_process(false)
@@ -33,3 +33,9 @@ func _idle(delta):
 		quit()
 	main.button.visible = true
 	return false
+
+func _many(o):
+	var out = []
+	for i in range(24):
+		out.append({"id": "z" + str(i), "name": "Plushie number " + str(i + 3), "size": 0.45, "pose": "sit", "outfit": o})
+	return out

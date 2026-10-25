@@ -24,7 +24,7 @@ func _idle(delta):
 		main.button.visible = true
 		main.set_process(false)
 		main._set_menu(true)
-		var b = Button.new(); b.text = "Fayt"; main._glass_button(b); main.maker_box.add_child(b)
+		var b = Button.new(); b.text = "Fayt"; main._glass_button(b); main.maker_box.add_child(b); main.prompt.visible = true; main.prompt.rect_position = Vector2(420, 330); main.prompt_word.text = "Hug Mochi"
 	if frames == 8:
 		main.button.visible = true
 		var img = root.get_viewport().get_texture().get_data()

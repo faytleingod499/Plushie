@@ -1,3 +1,8 @@
+## 1.1.0
+- The game's big interact bubble is gone. Walking up to a plushie shows a small glass "E  Hug <name>" tag on its body instead, like the other mods; E still hugs.
+- You can keep 30 plushies (was 12).
+- New Turn slider in the menu rotates a plushie that is out.
+
 ## 1.0.4
 - Patterns on modded species now use the pattern picture that follows the game's own numbering (the log showed the one for CDPanda's protogen was the next slot along).
 

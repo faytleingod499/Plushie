@@ -10,8 +10,7 @@ See `thunderstore/README.md` for what it does and how to use it.
 
 - `plush.gd` builds a plushie from the game's own player scene (same skeleton, face, tail and cosmetics code) and holds it in a pose by turning the skeleton's bones. It sits on the ground by working out the lowest point of the skinned body for each pose.
 - `poses.gd` is the pose table.
-- `plush_area.gd` is the spot the game's own interact key (E) finds on each plushie.
-- `main.gd` is the menu, saving (`user://plushie.json`), the Steam lobby sync (`plushie`, `plushie_h`, `plushie_v` member data) and the hug (two-bone arm reach like Hugs and More, squeak, hearts).
+- `main.gd` is the menu, saving (`user://plushie.json`), the Steam lobby sync (`plushie`, `plushie_h`, `plushie_v` member data) and the small "E  Hug" tag, the hug (two-bone arm reach like Hugs and More, squeak, hearts).
 - `squeak*.wav` are three squeaks made with a small script (synthesised, no recordings).
 
 ## Building

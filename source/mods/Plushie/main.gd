@@ -14,10 +14,9 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.0.4"
+const VERSION = "1.1.0"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
-const PlushArea = preload("res://mods/Plushie/plush_area.gd")
 
 const SYNC_KEY = "plushie"
 const HUG_KEY = "plushie_h"
@@ -28,7 +27,7 @@ const POPUP_ID = "PLUSHIE"
 const HEARTS = "res://Scenes/Particles/kiss.tscn"
 const OPEN_KEY = KEY_O
 
-const MAX_COLLECTION = 12
+const MAX_COLLECTION = 30
 const MAX_PLACED = 3
 const MAX_NAME = 20
 const DEFAULT_SIZE = 0.45
@@ -36,6 +35,7 @@ const SEE_RANGE = 40.0       # players further than this aren't offered
 const SHOW_RANGE = 45.0      # names are hidden past this
 const PUT_DISTANCE = 1.4     # where a plushie is put, in front of me (times my size)
 
+const PROMPT_RANGE = 1.6     # how close you have to be (plus half the plushie's size) for the tag
 const HUG_TIME = 3.2
 const HUG_BLEND = 0.4
 const HUG_MOVE = 0.8         # walking further than this ends a hug
@@ -85,6 +85,12 @@ var size_label
 var pose_buttons = {}
 var put_button
 var toast
+var prompt_layer
+var prompt
+var prompt_word
+var prompt_entry = null
+var turn_slider
+var turn_label
 var toast_until = 0.0
 var btn_hover = false
 var btn_pressed = false
@@ -148,6 +154,7 @@ func _process(delta):
 		_sync(lobby, me, delta)
 		_update_entries(local, me)
 		_update_sessions(delta, me)
+		_update_prompt(local, me)
 		_update_labels()
 	if menu_open:
 		refresh_timer += delta
@@ -352,7 +359,6 @@ func _apply_remote(owner, text):
 				_rebuild_entry(e)
 			else:
 				e["node"].set_pose(d["rec"]["pose"])
-				e["node"].interact.text = _hug_text(d["rec"])
 		else:
 			_add_entry(owner, d["rec"], d["feet"], d["yaw"])
 
@@ -393,9 +399,6 @@ func _add_entry(owner, rec, feet, yaw):
 	if not node.setup(rec):
 		node.queue_free()
 		return null
-	node.interact.mod = self
-	node.interact.plush = node
-	node.interact.text = _hug_text(rec)
 	node.place(feet, yaw)
 	var e = {"key": str(owner) + ":" + rec["id"], "owner": owner, "id": rec["id"], "rec": rec, "node": node,
 		"feet": feet, "yaw": yaw, "label": _make_label()}
@@ -414,9 +417,6 @@ func _rebuild_entry(e):
 	if not node.setup(e["rec"]):
 		node.queue_free()
 		return
-	node.interact.mod = self
-	node.interact.plush = node
-	node.interact.text = _hug_text(e["rec"])
 	node.place(e["feet"], e["yaw"])
 	e["node"] = node
 
@@ -537,15 +537,10 @@ func _is_out(rec):
 
 # --- hugging ---
 
-func _on_plush_activated(plush, actor):
+func _hug_entry(found):
 	var me = _my_id()
-	if clock < hug_ready_at or sessions.has(me):
-		return
-	var found = null
-	for key in entries.keys():
-		if entries[key]["node"] == plush:
-			found = entries[key]
-	if found == null:
+	var actor = _local_player()
+	if actor == null or found == null or clock < hug_ready_at or sessions.has(me):
 		return
 	for hugger in sessions.keys():
 		if sessions[hugger]["entry"] == found:
@@ -555,6 +550,77 @@ func _on_plush_activated(plush, actor):
 	my_hug_text = "1|" + str(my_hug_seq) + "|" + str(found["owner"]) + "|" + found["id"]
 	_write_member(HUG_KEY, my_hug_text)
 	_start_session(me, actor, found, true)
+
+
+# the small "E  Hug <name>" tag on the nearest plushie within reach, in the same glass as the other mods
+func _update_prompt(local, me):
+	prompt_entry = null
+	if local != null and _hud_free() and not sessions.has(me) and clock >= hug_ready_at:
+		var here = local.global_transform.origin
+		var best = 1e9
+		for key in entries.keys():
+			var e = entries[key]
+			var node = e["node"]
+			if not is_instance_valid(node) or _taken_by_hug(e):
+				continue
+			var reach = PROMPT_RANGE + 0.5 * node.size
+			var d = Vector3(node.global_transform.origin.x - here.x, 0, node.global_transform.origin.z - here.z).length()
+			if d < reach and d < best:
+				best = d
+				prompt_entry = e
+	if prompt_entry == null:
+		prompt.visible = false
+		return
+	var nm = str(prompt_entry["rec"].get("name", ""))
+	var text = "Hug " + (nm if nm != "" else "plushie")
+	if prompt_word.text != text:
+		prompt_word.text = text
+	_place_on(prompt, prompt_entry["node"])
+
+
+func _taken_by_hug(e):
+	for hugger in sessions.keys():
+		if sessions[hugger]["entry"] == e:
+			return true
+	return false
+
+
+# nothing of the game's is open (my own menu can be)
+func _hud_free():
+	var hud = _get_hud()
+	if hud == null:
+		return false
+	if hud.get("menu") != 0 or hud.get("hud_hidden") == true or hud.get("using_chat") == true:
+		return false
+	var popups = hud.get("popups")
+	if typeof(popups) == TYPE_ARRAY and not popups.empty():
+		return false
+	return true
+
+
+# puts a small box on screen over the middle of a plushie's body
+func _place_on(control, node):
+	var view = node.get_viewport()
+	var camera = view.get_camera() if view != null else null
+	if camera == null or not node.is_visible_in_tree():
+		control.visible = false
+		return
+	var at3 = node.global_transform.origin
+	var sk = node.skeleton
+	if sk != null and sk.find_bone("torso") >= 0:
+		at3 = sk.global_transform.xform(sk.get_bone_global_pose(sk.find_bone("torso")).origin)
+	if camera.is_position_behind(at3):
+		control.visible = false
+		return
+	var at = camera.unproject_position(at3)
+	var holder = view.get_parent()
+	if holder is ViewportContainer and view.size.x > 0 and view.size.y > 0:
+		var box = holder.get_global_rect()
+		at = box.position + at * (box.size / view.size)
+	control.visible = true
+	control.rect_size = Vector2()
+	var size = control.get_combined_minimum_size()
+	control.rect_position = Vector2(at.x - size.x / 2.0, at.y - size.y / 2.0)
 
 
 func _start_session(hugger_id, hugger, entry, mine):
@@ -942,9 +1008,34 @@ func _build_ui():
 	name_layer = CanvasLayer.new()
 	name_layer.layer = 0
 	add_child(name_layer)
+	# the hug tag sits under the game's own windows, the menu on top
+	prompt_layer = CanvasLayer.new()
+	prompt_layer.layer = 1
+	add_child(prompt_layer)
 	layer = CanvasLayer.new()
 	layer.layer = 3
 	add_child(layer)
+
+	prompt = PanelContainer.new()
+	prompt.visible = false
+	prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	prompt.add_stylebox_override("panel", _glass(Color(0.06, 0.12, 0.18, 0.55), Color(0.55, 1.0, 1.0, 0.45), 8, 3))
+	prompt_layer.add_child(prompt)
+	var prow = HBoxContainer.new()
+	prow.add_constant_override("separation", 6)
+	prow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	prompt.add_child(prow)
+	var pkey = Label.new()
+	pkey.text = "E"
+	pkey.add_color_override("font_color", Color(0.55, 1.0, 1.0))
+	pkey.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	prow.add_child(pkey)
+	prompt_word = Label.new()
+	prompt_word.text = "Hug"
+	prompt_word.add_color_override("font_color", Color(1, 1, 1, 0.9))
+	prompt_word.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	prow.add_child(prompt_word)
+	prompt.rect_scale = Vector2(0.85, 0.85)
 
 	button = Control.new()
 	button.rect_size = Vector2(34, 34)
@@ -1049,6 +1140,28 @@ func _build_ui():
 	size_label.add_color_override("font_color", Color(1, 1, 1))
 	size_row.add_child(size_label)
 
+	var turn_row = HBoxContainer.new()
+	turn_row.add_constant_override("separation", 8)
+	detail.add_child(turn_row)
+	var turn_name = Label.new()
+	turn_name.text = "Turn"
+	turn_name.add_color_override("font_color", Color(1, 1, 1))
+	turn_row.add_child(turn_name)
+	turn_slider = HSlider.new()
+	turn_slider.min_value = 0
+	turn_slider.max_value = 360
+	turn_slider.step = 5
+	turn_slider.focus_mode = Control.FOCUS_NONE
+	turn_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	turn_slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	turn_slider.connect("value_changed", self, "_on_turn_changed")
+	turn_row.add_child(turn_slider)
+	turn_label = Label.new()
+	turn_label.rect_min_size = Vector2(46, 0)
+	turn_label.align = Label.ALIGN_RIGHT
+	turn_label.add_color_override("font_color", Color(1, 1, 1))
+	turn_row.add_child(turn_label)
+
 	var grid = GridContainer.new()
 	grid.columns = 3
 	grid.add_constant_override("hseparation", 4)
@@ -1146,6 +1259,10 @@ func _input(event):
 				_save_config()
 			else:
 				_set_menu(not menu_open)
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.is_action("interact") and prompt != null and prompt.visible and prompt_entry != null and not _typing():
+		_hug_entry(prompt_entry)
+		get_tree().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.scancode == OPEN_KEY and not _typing() and (button.visible or menu_open):
@@ -1332,6 +1449,13 @@ func _refresh_detail():
 		else:
 			_glass_button(b)
 	put_button.text = "Move here" if _is_out(rec) else "Put out"
+	var out_key = str(_my_id()) + ":" + rec["id"]
+	updating_ui = true
+	turn_slider.editable = entries.has(out_key)
+	var deg = fposmod(rad2deg(entries[out_key]["yaw"]), 360.0) if entries.has(out_key) else 0.0
+	turn_slider.value = round(deg / 5.0) * 5.0
+	turn_label.text = str(int(turn_slider.value)) + "\u00b0" if entries.has(out_key) else "-"
+	updating_ui = false
 
 
 func _on_select(id):
@@ -1366,8 +1490,6 @@ func _changed(rec):
 	if entries.has(key):
 		var e = entries[key]
 		e["rec"] = rec
-		if is_instance_valid(e["node"]):
-			e["node"].interact.text = _hug_text(rec)
 		sync_dirty = true
 
 
@@ -1389,6 +1511,20 @@ func _on_size_changed(value):
 			e["node"].place(e["feet"], e["yaw"])
 		sync_dirty = true
 	_save_config()
+
+
+# turns a plushie that is out, about where it stands
+func _on_turn_changed(value):
+	if updating_ui:
+		return
+	var rec = _record(selected)
+	if rec == null:
+		return
+	var key = str(_my_id()) + ":" + rec["id"]
+	if entries.has(key):
+		entries[key]["yaw"] = deg2rad(float(value))
+		sync_dirty = true
+	turn_label.text = str(int(value)) + "\u00b0"
 
 
 func _on_pose(id):

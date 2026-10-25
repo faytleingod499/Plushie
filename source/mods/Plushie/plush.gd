@@ -25,7 +25,6 @@ var face = null
 var tail = null
 var body_mesh = null
 var species_mesh = null
-var interact = null           # the Area that makes the game show "[E] HUG"
 
 var pose_id = "sit"
 var goal = []                  # Transform per bone, where the pose wants it
@@ -78,7 +77,6 @@ func setup(record):
 		hand.visible = false
 	_dress(rec.get("outfit", {}))
 	_repair_skins()
-	_make_area()
 	scale = Vector3.ONE * size
 	var n = skeleton.get_bone_count()
 	cur = []
@@ -88,22 +86,6 @@ func setup(record):
 	built = true
 	_freeze_tail()
 	return true
-
-
-# the spot the game's interact key finds: walking up shows "[E] <text>" and E calls the mod
-func _make_area():
-	var script = load("res://mods/Plushie/plush_area.gd")
-	if script == null:
-		return
-	interact = Area.new()
-	interact.set_script(script)
-	var shape = CollisionShape.new()
-	var sphere = SphereShape.new()
-	sphere.radius = 0.8
-	shape.shape = sphere
-	shape.translation = Vector3(0, 0.1, 0)
-	interact.add_child(shape)
-	add_child(interact)
 
 
 func _fresh_body():

@@ -48,7 +48,7 @@ func _init():
 	plush.place(home, 0.0)
 	main = Main.new()
 	root.add_child(main)
-	var e = {"key": "1:p", "node": plush, "owner": 1, "id": "p", "feet": home, "yaw": 0.0}
+	var e = {"key": "1:p", "rec": {"lift": 0.0}, "node": plush, "owner": 1, "id": "p", "feet": home, "yaw": 0.0}
 	main.entries["1:p"] = e
 	s = {"hugger": hugger, "entry": e, "t": 0.0, "w": 0.0, "ending": false, "squeaked": true, "start": hugger.translation, "mine": true, "home_feet": home, "home_yaw": 0.0}
 	if OS.get_environment("NOH") != "":

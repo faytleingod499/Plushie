@@ -189,8 +189,14 @@ func _tint_modded(node, primary, secondary, pattern, species_id):
 			old = mi.mesh.surface_get_material(0)
 		print("[Plushie]   ", mi.name, " surface0 material: ", old.get_class() if old != null else "none", " ", old.shader.resource_path if old is ShaderMaterial and old.shader != null else "")
 		var tex = null
-		if pattern != null and pattern.body_pattern.size() > species_id and species_id > 0:
-			tex = pattern.body_pattern[species_id]
+		if pattern != null and pattern.body_pattern.size() > 1:
+			var bp = pattern.body_pattern
+			var pick = species_id if (species_id > 0 and species_id < bp.size()) else (2 if bp.size() > 2 else bp.size() - 1)
+			tex = bp[pick]
+			var have = []
+			for t in bp:
+				have.append(t != null)
+			print("[Plushie]   pattern slots=", bp.size(), " filled=", have, " species cos_internal_id=", species_id, " using slot ", pick)
 		# without a pattern picture the shader would paint everything with the second colour
 		var second = secondary if tex != null else primary
 		if old is SpatialMaterial:

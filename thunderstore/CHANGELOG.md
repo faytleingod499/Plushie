@@ -1,3 +1,6 @@
+## 1.2.2
+- Plushies no longer have the red blush lines on their cheeks (they are only meant to show when a player is drunk).
+
 ## 1.2.1
 - New "Put all away" button in the menu.
 

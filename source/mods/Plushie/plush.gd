@@ -76,6 +76,9 @@ func setup(record):
 	if hand != null:
 		hand.visible = false
 	_dress(rec.get("outfit", {}))
+	# the face scene starts with the drunk blush showing; the game itself hides it unless the player is drunk
+	if face != null and face.has_method("_show_blush"):
+		face._show_blush(false)
 	_repair_skins()
 	scale = Vector3.ONE * size
 	var n = skeleton.get_bone_count()

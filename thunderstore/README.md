@@ -4,7 +4,7 @@ Turn a player you see into a plushie. It wears the outfit they have on right now
 
 *This mod was created with the assistance of AI.*
 
-- Click the bear button (or press **K**) and pick a player you can see. The plushie is put down in front of you.
+- Click the bear button (or press **O**) and pick a player you can see. The plushie is put down in front of you.
 - Give it a name, make it bigger or smaller, and sit it in a pose: sit, stand, slump, hug me, wave, hands up, lie on its back or tummy, or sleep.
 - Walk up to a plushie and press **E** to hug it. It squeaks, little hearts float up, and it is pulled in to you. If you are bigger than the plushie it is lifted up to your chest; if it is bigger it stays on the ground and you hug it round the middle. Walking away ends the hug.
 - You keep up to 12 plushies (saved on your computer) and can have 3 out at a time.

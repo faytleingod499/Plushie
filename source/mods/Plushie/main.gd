@@ -14,7 +14,7 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.0.0"
+const VERSION = "1.0.1"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
 const PlushArea = preload("res://mods/Plushie/plush_area.gd")
@@ -26,7 +26,7 @@ const CONFIG_PATH = "user://plushie.json"
 const SKELETON_PATH = "body/player_body/Armature/Skeleton"
 const POPUP_ID = "PLUSHIE"
 const HEARTS = "res://Scenes/Particles/kiss.tscn"
-const OPEN_KEY = KEY_K
+const OPEN_KEY = KEY_O
 
 const MAX_COLLECTION = 12
 const MAX_PLACED = 3
@@ -860,6 +860,7 @@ func _make_plushie(player, id):
 	if clean.empty():
 		return
 	var nm = _clean_name(_name_of(id))
+	print("[Plushie] captured outfit of ", nm, ": species=", clean.get("species"), " primary=", clean.get("primary_color"), " secondary=", clean.get("secondary_color"), " pattern=", clean.get("pattern"), " (game sent ", outfit.get("primary_color"), ")")
 	var rec = {"id": _new_id(), "name": nm, "size": DEFAULT_SIZE, "pose": "sit", "outfit": clean}
 	collection.append(rec)
 	selected = rec["id"]
@@ -956,7 +957,7 @@ func _build_ui():
 	button.connect("mouse_entered", self, "_on_button_hover", [true])
 	button.connect("mouse_exited", self, "_on_button_hover", [false])
 	layer.add_child(button)
-	_add_tooltip(button, "Plushies", "Click (or press K) to make plushies. Drag to move this button")
+	_add_tooltip(button, "Plushies", "Click (or press O) to make plushies. Drag to move this button")
 
 	toast = Label.new()
 	toast.visible = false

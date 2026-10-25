@@ -1,6 +1,6 @@
 {
     "name": "Plushie",
-    "version_number": "1.0.0",
+    "version_number": "1.0.1",
     "website_url": "https://github.com/faytleingod499/Plushie",
     "description": "Turn a player into a plushie in their current outfit. Name it, resize it, pose it, hug it for a squeak. This mod was created with the assistance of AI.",
     "dependencies": [

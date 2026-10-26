@@ -34,6 +34,10 @@ func _idle(delta):
 	ok(d["rec"]["outfit"].get("species") == "species_dog", "outfit species")
 	# hostile input
 	ok(main._decode("x") == null, "short rejected")
+	var acc = main._decode("abc|n|1|sit|0|0|0|0|accessory=weed+tunesmetics.hat_x;accessory_glasses;")
+	ok(acc != null and acc["rec"]["outfit"]["accessory"] == ["weed+tunesmetics.hat_x", "accessory_glasses"], "accessory ids with + survive")
+	var acc2 = main._decode("abc|n|1|sit|0|0|0|0|accessory=a+b")
+	ok(acc2["rec"]["outfit"]["accessory"] == ["a", "b"], "old + format still reads")
 	var longid = main._decode("abc|n|1|sit|0|0|0|0|primary_color=colorsexpandedpluspatterns.pcolor_pride_rainbow_2,secondary_color=colorsexpandedpluspatterns.scolor_pride_rainbow_3")
 	ok(longid != null and longid["rec"]["outfit"].get("primary_color", "") == "colorsexpandedpluspatterns.pcolor_pride_rainbow_2" and longid["rec"]["outfit"].has("secondary_color"), "49-char colour ids survive decode")
 	ok(main._decode("BAD ID!|n|1|sit|0|0|0|0|") == null, "bad id rejected")

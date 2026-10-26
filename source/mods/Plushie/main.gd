@@ -14,7 +14,7 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.4.3"
+const VERSION = "1.4.4"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
 
@@ -276,7 +276,13 @@ func _encode(e):
 	var outfit = rec.get("outfit", {})
 	for k in outfit.keys():
 		if k == "accessory":
-			bits.append("accessory=" + "+".join(PoolStringArray(outfit[k])))
+			# "+" between accessories, as older versions read it; an id that has a "+" in it (a mod's name) is
+			# sent with ";" instead, with one on the end so the reader knows
+			var plus = false
+			for a in outfit[k]:
+				if "+" in str(a):
+					plus = true
+			bits.append("accessory=" + (";".join(PoolStringArray(outfit[k])) + ";" if plus else "+".join(PoolStringArray(outfit[k]))))
 		else:
 			bits.append(str(k) + "=" + str(outfit[k]))
 	var f = e["feet"]
@@ -314,7 +320,7 @@ func _decode(text):
 			continue
 		if kv[0] == "accessory":
 			var list = []
-			for a in kv[1].split("+"):
+			for a in kv[1].split(";" if ";" in kv[1] else "+"):
 				if a != "" and a.length() <= 96:
 					list.append(a)
 			outfit["accessory"] = list

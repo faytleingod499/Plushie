@@ -14,7 +14,7 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.4.4"
+const VERSION = "1.4.5"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
 
@@ -37,6 +37,7 @@ const SEE_RANGE = 40.0       # players further than this aren't offered
 const SHOW_RANGE = 45.0      # names are hidden past this
 const PUT_DISTANCE = 1.4     # where a plushie is put, in front of me (times my size)
 
+const DELETE_CONFIRM_TIME = 3.0  # seconds the "Sure?" stays before Delete goes back to normal
 const PROMPT_RANGE = 0.4     # how close you have to be (plus an eighth of the plushie's size) for the tag
 const HUG_TIME = 3.2
 const HUG_BLEND = 0.4
@@ -53,6 +54,8 @@ var clock = 0.0
 var squeaks = []
 var hearts_scene = null
 
+var delete_button = null
+var delete_armed_until = 0.0
 var collection = []          # my plushies (records): {id, name, size, pose, outfit}
 var selected = ""
 var entries = {}             # "<owner>:<id>" -> {key, owner, id, rec, node, feet, yaw, label}
@@ -145,6 +148,8 @@ func _exit_tree():
 
 func _process(delta):
 	clock += delta
+	if delete_armed_until > 0.0 and clock > delete_armed_until:
+		_disarm_delete()
 	var net = get_node_or_null("/root/Network")
 	var lobby = 0
 	lobby = _lobby_of(net)
@@ -1249,12 +1254,12 @@ func _build_ui():
 	away.connect("pressed", self, "_on_away")
 	_glass_button(away)
 	row.add_child(away)
-	var del = Button.new()
-	del.text = "Delete"
-	del.focus_mode = Control.FOCUS_NONE
-	del.connect("pressed", self, "_on_delete")
-	_glass_button(del)
-	row.add_child(del)
+	delete_button = Button.new()
+	delete_button.text = "Delete"
+	delete_button.focus_mode = Control.FOCUS_NONE
+	delete_button.connect("pressed", self, "_on_delete")
+	_glass_button(delete_button)
+	row.add_child(delete_button)
 
 	all_away_button = Button.new()
 	all_away_button.text = "Put all away"
@@ -1626,6 +1631,7 @@ func _refresh_list():
 
 
 func _refresh_detail():
+	_disarm_delete()
 	var any_out = false
 	for k in entries.keys():
 		if entries[k]["owner"] == _my_id():
@@ -1777,10 +1783,22 @@ func _on_all_away():
 	_refresh_all()
 
 
+# Delete needs a second click ("Sure?") within a few seconds, so a saved plushie isn't lost by accident.
+func _disarm_delete():
+	delete_armed_until = 0.0
+	if delete_button != null:
+		delete_button.text = "Delete"
+
+
 func _on_delete():
 	var rec = _record(selected)
 	if rec == null:
 		return
+	if delete_armed_until <= clock:
+		delete_armed_until = clock + DELETE_CONFIRM_TIME
+		delete_button.text = "Sure?"
+		return
+	_disarm_delete()
 	_put_away(rec)
 	collection.erase(rec)
 	selected = collection[0]["id"] if not collection.empty() else ""

@@ -24,6 +24,19 @@ func _idle(delta):
 	var rec = {"id": "abc123", "name": "Bob|~<x>", "size": 0.8, "pose": "wave", "outfit": outfit}
 	var e = {"id": "abc123", "rec": rec, "feet": Vector3(1.5, 2.25, -3.0), "yaw": 0.5, "owner": 5}
 	var text = main._encode(e)
+	if main.delete_button != null:
+		main.collection = [rec]
+		main.selected = "abc123"
+		main._on_delete()
+		ok(main.collection.size() == 1 and main.delete_button.text == "Sure?", "first Delete click only asks Sure?")
+		main.clock += 10.0
+		main._process(0.0)
+		ok(main.delete_button.text == "Delete", "Sure? times out")
+		main._on_delete()
+		main._on_delete()
+		ok(main.collection.empty(), "second click within time deletes")
+	else:
+		ok(false, "delete button exists")
 	print(text)
 	ok(not ("~" in text.split("|")[1]) , "name stripped of separators")
 	var d = main._decode(text)

@@ -14,7 +14,7 @@ extends Node
 #   plushie_h   "1|<seq>|<owner steam id>|<plushie id>"  I started hugging that plushie
 #   plushie_v   the mod's version (so the others know I have it)
 
-const VERSION = "1.4.2"
+const VERSION = "1.4.3"
 const Plush = preload("res://mods/Plushie/plush.gd")
 const Poses = preload("res://mods/Plushie/poses.gd")
 
@@ -315,10 +315,10 @@ func _decode(text):
 		if kv[0] == "accessory":
 			var list = []
 			for a in kv[1].split("+"):
-				if a != "" and a.length() <= 48:
+				if a != "" and a.length() <= 96:
 					list.append(a)
 			outfit["accessory"] = list
-		elif kv[1].length() <= 48:
+		elif kv[1].length() <= 96:
 			outfit[kv[0]] = kv[1]
 	var pose = f[3] if Poses.has(f[3]) else "sit"
 	var lim = 100000.0

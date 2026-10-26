@@ -34,6 +34,8 @@ func _idle(delta):
 	ok(d["rec"]["outfit"].get("species") == "species_dog", "outfit species")
 	# hostile input
 	ok(main._decode("x") == null, "short rejected")
+	var longid = main._decode("abc|n|1|sit|0|0|0|0|primary_color=colorsexpandedpluspatterns.pcolor_pride_rainbow_2,secondary_color=colorsexpandedpluspatterns.scolor_pride_rainbow_3")
+	ok(longid != null and longid["rec"]["outfit"].get("primary_color", "") == "colorsexpandedpluspatterns.pcolor_pride_rainbow_2" and longid["rec"]["outfit"].has("secondary_color"), "49-char colour ids survive decode")
 	ok(main._decode("BAD ID!|n|1|sit|0|0|0|0|") == null, "bad id rejected")
 	var h = main._decode("abc|n|99999|nopose|1e30|abc|nan|inf|species=../../x,junk,=,accessory=" + "a+".repeat(50))
 	ok(h != null and h["rec"]["size"] <= Plush.MAX_SIZE and h["rec"]["pose"] == "sit", "clamped size, bad pose -> sit")
